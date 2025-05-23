@@ -19,7 +19,7 @@ class UserRepository {
           .get();
 
       if (snapshot.exists) {
-        return User.fromJson(snapshot.data()!);
+        return User.fromJson(snapshot.data()!, snapshot.id);
       } else {
         throw Exception('Användardata finns inte.');
       }
