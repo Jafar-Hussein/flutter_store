@@ -11,7 +11,7 @@ class OrderProduct {
     required this.quantity,
   });
 
-  factory OrderProduct.fromJson(Map<String, dynamic> json) {
+  factory OrderProduct.fromJson(Map<String, dynamic> json, String id) {
     return OrderProduct(
       id: json['id'],
       title: json['title'],

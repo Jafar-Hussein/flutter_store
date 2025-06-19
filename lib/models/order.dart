@@ -22,7 +22,7 @@ class Order {
       createdAt: DateTime.parse(json['createdAt']),
       total: (json['total'] as num).toDouble(),
       products: (json['products'] as List<dynamic>)
-          .map((item) => OrderProduct.fromJson(item))
+          .map((item) => OrderProduct.fromJson(item, id))
           .toList(),
     );
   }
