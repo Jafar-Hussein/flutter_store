@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_store/repository/favouritesRepository.dart';
 
 class Authrepository {
   final _auth = FirebaseAuth.instance;
@@ -31,7 +32,13 @@ class Authrepository {
         'savedProducts': [],
       };
 
+      // Spara användaren i Firestore
       await _firestore.collection(userCollection).doc(uid).set(userData);
+
+      // 👉 Skapa favoritlista för användaren direkt efter registrering
+      await FavouritesRepository().createFavouriteList();
+
+      print('Användare och favoritlista skapade.');
 
       // Returnera relevant data till frontend
       return {
@@ -41,7 +48,7 @@ class Authrepository {
         'lastName': lastName,
       };
     } catch (e) {
-      print('Error: $e');
+      print('Fel: $e');
       rethrow;
     }
   }
