@@ -2,7 +2,7 @@ import 'package:flutter_store/models/CartProduct.dart';
 import 'package:flutter_store/models/products.dart';
 
 class FavouriteProduct {
-  final String id;
+  final String favouriteId;
   final String title;
   final String image;
   final double price;
@@ -10,7 +10,7 @@ class FavouriteProduct {
   final double rating;
 
   FavouriteProduct({
-    required this.id,
+    required this.favouriteId,
     required this.title,
     required this.image,
     required this.price,
@@ -20,7 +20,7 @@ class FavouriteProduct {
 
   factory FavouriteProduct.fromJson(Map<String, dynamic> json) {
     return FavouriteProduct(
-      id: json['id'],
+      favouriteId: json['id'],
       title: json['title'],
       image: json['image'],
       price: (json['price'] as num).toDouble(),
@@ -31,7 +31,7 @@ class FavouriteProduct {
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
+      'avouriteId': favouriteId,
       'title': title,
       'image': image,
       'price': price,
