@@ -121,4 +121,25 @@ class UserRepository {
       rethrow;
     }
   }
+
+  Future<User> getUserInfo() async {
+    try {
+      final uid = auth.FirebaseAuth.instance.currentUser!.uid;
+
+      final userDoc = await _firestore
+          .collection(userCollection)
+          .doc(uid)
+          .get();
+
+      if (!userDoc.exists) {
+        throw Exception('Användare finns inte');
+      }
+      final userData = userDoc.data()!;
+
+      return User.fromJson(userData, userDoc.id);
+    } catch (e) {
+      print('Error: $e');
+      rethrow;
+    }
+  }
 }

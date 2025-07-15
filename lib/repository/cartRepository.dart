@@ -10,10 +10,9 @@ class Cartrepository {
   Future<void> createCart() async {
     try {
       final uid = auth.FirebaseAuth.instance.currentUser!.uid;
-
       final cartRef = _firestore.collection(cartCollection).doc(uid);
-
       final cartSnapshot = await cartRef.get();
+
       if (!cartSnapshot.exists) {
         await cartRef.set({'userId': uid, 'total': 0, 'items': []});
         print('Cart skapad för användare $uid');
@@ -29,7 +28,6 @@ class Cartrepository {
   Future<Cart> getCart() async {
     try {
       final uid = auth.FirebaseAuth.instance.currentUser!.uid;
-
       final cartDoc = await _firestore
           .collection(cartCollection)
           .doc(uid)
@@ -54,7 +52,6 @@ class Cartrepository {
     try {
       final uid = auth.FirebaseAuth.instance.currentUser!.uid;
       final cartRef = _firestore.collection(cartCollection).doc(uid);
-
       final cartDoc = await cartRef.get();
 
       if (!cartDoc.exists) {
@@ -64,7 +61,6 @@ class Cartrepository {
       final data = cartDoc.data()!;
       List<dynamic> items = data['items'];
 
-      // Hitta och uppdatera rätt produkt
       bool productFound = false;
       List<Map<String, dynamic>> updatedItems = [];
 
@@ -80,15 +76,12 @@ class Cartrepository {
         throw Exception('Produkt med id $productId finns inte i kundvagnen.');
       }
 
-      // Räkna om total
       double newTotal = updatedItems.fold(0, (sum, item) {
         return sum + (item['price'] * item['quantity']);
       });
 
-      // Uppdatera i Firestore
       await cartRef.update({'items': updatedItems, 'total': newTotal});
 
-      // Returnera den uppdaterade produkten
       final updatedItem = updatedItems.firstWhere(
         (item) => item['id'] == productId,
       );
@@ -99,37 +92,55 @@ class Cartrepository {
     }
   }
 
-Future<void> deleteProductFromCart(String productId) async {
-  try {
-    final uid = auth.FirebaseAuth.instance.currentUser!.uid;
-    final cartRef = _firestore.collection(cartCollection).doc(uid);
+  Future<void> deleteProductFromCart(String productId) async {
+    try {
+      final uid = auth.FirebaseAuth.instance.currentUser!.uid;
+      final cartRef = _firestore.collection(cartCollection).doc(uid);
+      final cartDoc = await cartRef.get();
 
-    final cartDoc = await cartRef.get();
-    if (!cartDoc.exists) {
-      throw Exception('Cart finns inte.');
+      if (!cartDoc.exists) {
+        throw Exception('Cart finns inte.');
+      }
+
+      final data = cartDoc.data()!;
+      List<dynamic> items = data['items'];
+
+      final updatedItems = items
+          .where((item) => item['id'] != productId)
+          .toList();
+
+      double newTotal = updatedItems.fold(0, (sum, item) {
+        return sum + (item['price'] * item['quantity']);
+      });
+
+      await cartRef.update({'items': updatedItems, 'total': newTotal});
+
+      print('Produkt $productId togs bort från cart.');
+    } catch (e) {
+      print('Error: $e');
+      rethrow;
     }
-
-    final data = cartDoc.data()!;
-    List<dynamic> items = data['items'];
-
-    // Ta bort produkten
-    final updatedItems = items.where((item) => item['id'] != productId).toList();
-
-    // Räkna om total
-    double newTotal = updatedItems.fold(0, (sum, item) {
-      return sum + (item['price'] * item['quantity']);
-    });
-
-    await cartRef.update({
-      'items': updatedItems,
-      'total': newTotal,
-    });
-
-    print('Produkt $productId togs bort från cart.');
-  } catch (e) {
-    print('Error: $e');
-    rethrow;
   }
-}
 
+  Future<void> clearCart() async {
+    try {
+      final uid = auth.FirebaseAuth.instance.currentUser!.uid;
+      final cartRef = _firestore.collection(cartCollection).doc(uid);
+      final cartDoc = await cartRef.get();
+
+      final data = cartDoc.data();
+      final items = data?['items'] as List<dynamic>?;
+
+      if (!cartDoc.exists || items == null || items.isEmpty) {
+        print("Kundvagnen är redan tom eller finns inte.");
+        return;
+      }
+
+      await cartRef.update({'items': [], 'total': 0});
+      print('Kundvagnen rensad för användare $uid');
+    } catch (e) {
+      print('Error: $e');
+      rethrow;
+    }
+  }
 }

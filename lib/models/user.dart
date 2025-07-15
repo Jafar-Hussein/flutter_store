@@ -5,6 +5,7 @@ class User {
   final String lastName;
   final DateTime dateOfBirth;
   final List<String> savedProductIds;
+  final String stripeCustomerId;
 
   User({
     required this.uid,
@@ -13,6 +14,7 @@ class User {
     required this.lastName,
     required this.dateOfBirth,
     required this.savedProductIds,
+    required this.stripeCustomerId,
   });
 
   factory User.fromJson(Map<String, dynamic> json, String uid) {
@@ -23,6 +25,7 @@ class User {
       lastName: json['lastName'],
       dateOfBirth: DateTime.parse(json['dateOfBirth']),
       savedProductIds: List<String>.from(json['savedProducts'] ?? []),
+      stripeCustomerId: json['stripeCustomerId'] ?? '',
     );
   }
 
@@ -33,6 +36,7 @@ class User {
       'lastName': lastName,
       'dateOfBirth': dateOfBirth.toIso8601String(),
       'savedProducts': savedProductIds,
+      'stripeCustomerId': stripeCustomerId,
     };
   }
 }
