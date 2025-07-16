@@ -1,47 +1,24 @@
-import 'package:stripe_server/stripe_server.dart' as stripe_server;
+import 'dart:io';
 
-import 'dart:convert';
+import 'package:dotenv/dotenv.dart' as dotenv;
+import 'package:stripe_server/routes/stripeRoutes.dart';
+import 'package:stripe_server/services/stripeService.dart';
+
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart';
 import 'package:shelf_router/shelf_router.dart';
-import 'package:http/http.dart' as http;
-import 'package:dotenv/dotenv.dart';
 
-void main() async {
-  final env = DotEnv()..load(); // Laddar .env
+Future<void> main() async {
+  // Skicka en lista med sökvägar (även om det är bara en)
+  final env = dotenv.DotEnv()..load(['.env']);
 
-  final app = Router();
+  final stripeService = StripeService(env);
+  final stripeRoutes = StripeRoutes(stripeService);
 
-  app.post('/create-payment-intent', (Request request) async {
-    final body = await request.readAsString();
-    final data = json.decode(body);
+  final router = Router()..mount('/', stripeRoutes.router);
 
-    final amount = data['amount'];
-    final currency = data['currency'];
+  final handler = Pipeline().addMiddleware(logRequests()).addHandler(router);
 
-    final stripeSecret = env['STRIPE_KEY'];
-
-    final response = await http.post(
-      Uri.parse('https://api.stripe.com/v1/payment_intents'),
-      headers: {
-        'Authorization': 'Bearer $stripeSecret',
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: {
-        'amount': amount.toString(),
-        'currency': currency,
-        'payment_method_types[]': 'card',
-      },
-    );
-
-    return Response.ok(
-      response.body,
-      headers: {'Content-Type': 'application/json'},
-    );
-  });
-
-  final handler = const Pipeline().addMiddleware(logRequests()).addHandler(app);
-
-  final server = await serve(handler, 'localhost', 8080);
-  print('sStripe-backend körs på http://${server.address.host}:${server.port}');
+  final server = await serve(handler, InternetAddress.anyIPv4, 8081);
+  print('✅ Servern kör på http://${server.address.host}:${server.port}');
 }
