@@ -142,4 +142,33 @@ class UserRepository {
       rethrow;
     }
   }
+
+  Future<void> updateLastViewedProduct(String productId) async {
+    if (productId.isEmpty) {
+      print('prdoukt ID finns inte');
+      return;
+    }
+    try {
+      final uid = auth.FirebaseAuth.instance.currentUser!.uid;
+
+      if (uid == null) {
+        print('Ingen inloggad användare');
+        return;
+      }
+
+      final userRef = _firestore.collection(userCollection).doc(uid);
+
+      final userDoc = await userRef.get();
+
+      if (!userDoc.exists) {
+        print('Användare finns inte');
+        return;
+      }
+
+      await userRef.update({'lastViewedProductId': productId});
+    } catch (e) {
+      print('Fel vid uppdatering av senaste produkt: $e');
+      rethrow;
+    }
+  }
 }

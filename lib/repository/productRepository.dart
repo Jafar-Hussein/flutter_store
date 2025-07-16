@@ -9,6 +9,7 @@ class ProductRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String productCollection = 'product';
   final String cartCollection = 'cart';
+  final String userCollection = 'user';
 
   Future<Product> getProduct(String productId) async {
     try {
@@ -243,5 +244,58 @@ class ProductRepository {
     }
   }
 
- 
+  Future<List<Product>> getLastViewedProducts(String productId) async {
+    try {
+      final updatedProductIds = await updateLastViewedProductList(productId);
+      return await fetchProductsByIds(updatedProductIds);
+    } catch (e) {
+      print('Fel vid hämtning av senaste produkter: $e');
+      return [];
+    }
+  }
+
+  Future<List<String>> updateLastViewedProductList(String productId) async {
+    final uid = auth.FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      print('Ingen inloggad användare');
+      return [];
+    }
+
+    final userRef = _firestore.collection(userCollection).doc(uid);
+    final userDoc = await userRef.get();
+
+    if (!userDoc.exists) {
+      print('Användare finns inte');
+      return [];
+    }
+
+    final data = userDoc.data();
+    final List<String> currentList = List<String>.from(
+      data?['lastViewedProductIds'] ?? [],
+    );
+
+    const int productListLimit =
+        10; // hur många produkter jag vill ha på skärmen
+
+    currentList.remove(productId); // Ta bort dubblett
+    currentList.insert(0, productId); // Lägg till först
+    final trimmedList = currentList.take(productListLimit).toList();
+
+    await userRef.update({'lastViewedProductIds': trimmedList});
+
+    return trimmedList;
+  }
+
+  Future<List<Product>> fetchProductsByIds(List<String> ids) async {
+    final List<Product> products = [];
+
+    for (final id in ids) {
+      final doc = await _firestore.collection('products').doc(id).get();
+      if (doc.exists) {
+        products.add(Product.fromJson(doc.data()!, doc.id));
+      }
+    }
+
+    return products;
+  }
 }
