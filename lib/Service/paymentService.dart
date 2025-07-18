@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as auth;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_store/models/stripePayment.dart';
 import 'package:flutter_store/repository/cartRepository.dart';
 import 'package:flutter_store/repository/orderRepository.dart';
@@ -9,7 +8,7 @@ import 'package:http/http.dart' as http;
 
 class PaymentService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final String backendUrl = dotenv.env['BACKEND_URL'] ?? '';
+  final String backendUrl = 'http://localhost:8080/create-payment-intent';
   final String cartCollection = 'cart';
   final String userCollection = 'user';
   final String stripePaymentCollection = 'StripePayment';
@@ -27,7 +26,7 @@ class PaymentService {
 
       String currency = 'SEK';
       final response = await http.post(
-        Uri.parse(backendUrl), // webhook URL
+        Uri.parse(backendUrl),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'amount': (amount * 100).toInt(),
