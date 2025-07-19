@@ -83,6 +83,9 @@ class PaymentService {
     required String deliveryAddress,
     required double deliveryFee,
     required String courierName,
+    required String currentCity,
+    required String startCity, // Lägg till dessa
+    required String endCity, // Lägg till dessa
     String? trackingNumber,
     DateTime? dispatchedTime,
     DateTime? deliveredTime,
@@ -102,11 +105,11 @@ class PaymentService {
       deliveredTime: deliveredTime,
       notes: notes,
       isPaid: true,
+      currentCity: currentCity,
+      startCity: startCity, // Skicka med startCity
+      endCity: endCity, // Skicka med endCity
     );
-    if (deliveryDto == null) {
-      print('Kundvagn är Tom');
-      return;
-    }
+
     await _deliveryRepo.createDelivery(deliveryDto);
   }
 
@@ -122,6 +125,8 @@ class PaymentService {
     DateTime? dispatchedTime,
     DateTime? deliveredTime,
     String? notes,
+    String? startCity, // Lägg till som optional parameter
+    String? endCity, // Lägg till som optional parameter
   }) async {
     try {
       final query = await _firestore
@@ -146,8 +151,13 @@ class PaymentService {
             customerId != null &&
             deliveryAddress != null &&
             deliveryFee != null &&
-            courierName != null) {
-          // Konvertera List<dynamic> till List<Product>
+            courierName != null &&
+            startCity != null && // Kontrollera att startCity finns
+            endCity != null) {
+          // Kontrollera att endCity finns
+
+          final currentCity = await _deliveryRepo.getCurrentCity();
+
           final productList = products.map<Product>((p) {
             if (p is Product) {
               return p;
@@ -169,6 +179,9 @@ class PaymentService {
             dispatchedTime: dispatchedTime,
             deliveredTime: deliveredTime,
             notes: notes,
+            currentCity: currentCity ?? 'Okänd stad',
+            startCity: startCity, // Skicka med startCity
+            endCity: endCity, // Skicka med endCity
           );
         } else {
           print('Saknar data för att skapa leverans');

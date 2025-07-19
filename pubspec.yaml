@@ -16,6 +16,8 @@ dependencies:
   flutter_bloc: ^9.1.1
   flutter_dotenv: ^5.2.1
   flutter_stripe: ^11.5.0
+  geocoding: ^4.0.0
+  geolocator: ^14.0.2
   google_fonts: ^6.2.1
 
 dev_dependencies:

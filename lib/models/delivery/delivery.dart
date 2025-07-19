@@ -15,6 +15,9 @@ class Delivery {
   final DateTime? deliveredTime;
   final String? notes;
   final bool isPaid;
+  final String currentCity;
+  final String? startCity; // Nytt fält: startplats (butikens stad)
+  final String? endCity; // Nytt fält: slutdestination (kundens stad)
 
   Delivery({
     required this.deliveryId,
@@ -31,6 +34,9 @@ class Delivery {
     this.deliveredTime,
     this.notes,
     required this.isPaid,
+    required this.currentCity,
+    this.startCity,
+    this.endCity,
   });
 
   factory Delivery.fromJson(Map<String, dynamic> json, String id) {
@@ -38,22 +44,33 @@ class Delivery {
       deliveryId: id,
       userId: json['userId'],
       products: (json['products'] as List)
-          .map((productJson) => Product.fromJson(productJson, productJson['id']))
+          .map(
+            (productJson) => Product.fromJson(productJson, productJson['id']),
+          )
           .toList(),
       deliveryTime: DateTime.parse(json['deliveryTime']),
       customerId: json['customerId'],
       deliveryAddress: json['deliveryAddress'],
       status: DeliveryStatus.values.firstWhere(
-        (e) => e.name.toLowerCase() == json['deliveryStatus'].toString().toLowerCase(),
+        (e) =>
+            e.name.toLowerCase() ==
+            json['deliveryStatus'].toString().toLowerCase(),
         orElse: () => DeliveryStatus.Pending,
       ),
       deliveryFee: (json['deliveryFee'] as num).toDouble(),
       courierName: json['courierName'],
       trackingNumber: json['trackingNumber'],
-      dispatchedTime: json['dispatchedTime'] != null ? DateTime.parse(json['dispatchedTime']) : null,
-      deliveredTime: json['deliveredTime'] != null ? DateTime.parse(json['deliveredTime']) : null,
+      dispatchedTime: json['dispatchedTime'] != null
+          ? DateTime.parse(json['dispatchedTime'])
+          : null,
+      deliveredTime: json['deliveredTime'] != null
+          ? DateTime.parse(json['deliveredTime'])
+          : null,
       notes: json['notes'],
       isPaid: json['isPaid'],
+      currentCity: json['currentCity'],
+      startCity: json['startCity'],
+      endCity: json['endCity'],
     );
   }
 
@@ -73,6 +90,9 @@ class Delivery {
       'deliveredTime': deliveredTime?.toIso8601String(),
       'notes': notes,
       'isPaid': isPaid,
+      'currentCity': currentCity,
+      'startCity': startCity,
+      'endCity': endCity,
     };
   }
 
@@ -91,6 +111,9 @@ class Delivery {
     DateTime? deliveredTime,
     String? notes,
     bool? isPaid,
+    String? currentCity,
+    String? startCity,
+    String? endCity,
   }) {
     return Delivery(
       deliveryId: deliveryId ?? this.deliveryId,
@@ -107,6 +130,9 @@ class Delivery {
       deliveredTime: deliveredTime ?? this.deliveredTime,
       notes: notes ?? this.notes,
       isPaid: isPaid ?? this.isPaid,
+      currentCity: currentCity ?? this.currentCity,
+      startCity: startCity ?? this.startCity,
+      endCity: endCity ?? this.endCity,
     );
   }
 }
