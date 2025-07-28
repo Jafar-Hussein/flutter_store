@@ -13,10 +13,7 @@ import 'package:http/http.dart' as http;
 class PaymentService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String backendUrl = 'http://localhost:8081/create-payment-intent';
-  final String cartCollection = 'cart';
-  final String userCollection = 'user';
   final String stripePaymentCollection = 'StripePayment';
-
   final Deliveryrepository _deliveryRepo = Deliveryrepository();
 
   Future<String> createPaymentIntent() async {
@@ -24,13 +21,11 @@ class PaymentService {
       final cartRepo = Cartrepository();
       final cart = await cartRepo.getCart();
 
-      if (cart.items.isEmpty) {
-        throw Exception("Kundvagnen är tom");
-      }
+      if (cart.items.isEmpty) throw Exception("Kundvagnen är tom");
 
       final amount = cart.total;
+      final currency = 'SEK';
 
-      String currency = 'SEK';
       final response = await http.post(
         Uri.parse(backendUrl),
         headers: {'Content-Type': 'application/json'},
@@ -39,23 +34,22 @@ class PaymentService {
           'currency': currency,
         }),
       );
+
       final clientSecret =
           json.decode(response.body)['clientSecret'] ??
           'pi_test_fake_secret_from_webhook';
 
       final createOrder = OrderRepository();
       await createOrder.createOrder(cart);
-
       await paymentInfo(amount, clientSecret);
-
-      print('Webhook skickat. Status: ${response.statusCode}');
-      print('Webhook svar: ${response.body}');
-
       await cartRepo.clearCart();
+
+      print('Webhook status: ${response.statusCode}');
+      print('Webhook svar: ${response.body}');
 
       return clientSecret;
     } catch (e) {
-      print('Fel vid test-paymentIntent: $e');
+      print('Fel vid createPaymentIntent: $e');
       rethrow;
     }
   }
@@ -73,6 +67,7 @@ class PaymentService {
       createdAt: DateTime.now(),
       clientSecret: clientSecret,
     );
+
     await paymentRef.set(payment.toJson());
   }
 
@@ -84,8 +79,8 @@ class PaymentService {
     required double deliveryFee,
     required String courierName,
     required String currentCity,
-    required String startCity, // Lägg till dessa
-    required String endCity, // Lägg till dessa
+    required String startCity,
+    required String endCity,
     String? trackingNumber,
     DateTime? dispatchedTime,
     DateTime? deliveredTime,
@@ -105,9 +100,9 @@ class PaymentService {
       deliveredTime: deliveredTime,
       notes: notes,
       isPaid: true,
-      currentCity: currentCity,
-      startCity: startCity, // Skicka med startCity
-      endCity: endCity, // Skicka med endCity
+      currentCity: startCity, // Startpunkten för spårning
+      startCity: startCity,
+      endCity: endCity,
     );
 
     await _deliveryRepo.createDelivery(deliveryDto);
@@ -125,8 +120,8 @@ class PaymentService {
     DateTime? dispatchedTime,
     DateTime? deliveredTime,
     String? notes,
-    String? startCity, // Lägg till som optional parameter
-    String? endCity, // Lägg till som optional parameter
+    String? startCity,
+    String? endCity,
   }) async {
     try {
       final query = await _firestore
@@ -152,20 +147,16 @@ class PaymentService {
             deliveryAddress != null &&
             deliveryFee != null &&
             courierName != null &&
-            startCity != null && // Kontrollera att startCity finns
+            startCity != null &&
             endCity != null) {
-          // Kontrollera att endCity finns
-
-          final currentCity = await _deliveryRepo.getCurrentCity();
+          final currentCity = startCity; // För demo/portfolio, börja här
 
           final productList = products.map<Product>((p) {
-            if (p is Product) {
-              return p;
-            } else if (p is Map<String, dynamic>) {
+            if (p is Product) return p;
+            if (p is Map<String, dynamic>) {
               return Product.fromJson(p, p['id']);
-            } else {
-              throw Exception('Ogiltig produktdata');
             }
+            throw Exception('Ogiltig produktdata');
           }).toList();
 
           await handleSuccessfulPayment(
@@ -179,19 +170,21 @@ class PaymentService {
             dispatchedTime: dispatchedTime,
             deliveredTime: deliveredTime,
             notes: notes,
-            currentCity: currentCity ?? 'Okänd stad',
-            startCity: startCity, // Skicka med startCity
-            endCity: endCity, // Skicka med endCity
+            currentCity: currentCity,
+            startCity: startCity,
+            endCity: endCity,
           );
         } else {
-          print('Saknar data för att skapa leverans');
+          print('Ofullständig information för leveransskapande');
         }
       }
     } catch (e) {
-      print('Fel vid uppdatering av betalningsstatus: $e');
+      print('Fel vid updatePaymentStatus: $e');
       rethrow;
     }
   }
 
-  Future<void> createRefund() async {}
+  Future<void> createRefund() async {
+    // Lämnad tom för portfolio/demo
+  }
 }

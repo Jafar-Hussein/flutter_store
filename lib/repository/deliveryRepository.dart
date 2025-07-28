@@ -2,18 +2,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as auth;
 import 'package:flutter_store/models/delivery/delivery.dart';
 import 'package:flutter_store/models/delivery/deliveryDto.dart';
-import 'package:geocoding/geocoding.dart';
-import 'package:geolocator/geolocator.dart';
 
 class Deliveryrepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String deliveryCollection = 'delivery';
 
+  /// Skapar en ny leverans. currentCity sätts till startCity automatiskt.
   Future<void> createDelivery(DeliveryDto dto) async {
-    if (dto == null) {
-      print('Den är tom');
-      return;
-    }
     try {
       final deliveryRef = _firestore.collection(deliveryCollection).doc();
 
@@ -32,7 +27,7 @@ class Deliveryrepository {
         deliveredTime: dto.deliveredTime,
         notes: dto.notes,
         isPaid: dto.isPaid,
-        currentCity: dto.currentCity,
+        currentCity: dto.startCity, // Startar där användaren har valt
         startCity: dto.startCity,
         endCity: dto.endCity,
       );
@@ -45,22 +40,23 @@ class Deliveryrepository {
     }
   }
 
+  /// Hämtar alla leveranser för inloggad användare
   Future<List<Delivery>?> getDeliveries() async {
     try {
-      final user = auth.FirebaseAuth.instance.currentUser;
-      if (user == null) {
+      final uid = auth.FirebaseAuth.instance.currentUser?.uid;
+
+      if (uid == null) {
         print('Ingen inloggad användare');
         return null;
       }
 
-      final uid = user.uid;
       final snapshot = await _firestore
           .collection(deliveryCollection)
           .where('userId', isEqualTo: uid)
           .get();
 
       if (snapshot.docs.isEmpty) {
-        print('Leverans finns inte');
+        print('Inga leveranser hittades');
         return null;
       }
 
@@ -73,32 +69,31 @@ class Deliveryrepository {
     }
   }
 
+  /// Hämtar en specifik leverans med ID
   Future<Delivery?> getDeliveryById(String id) async {
     if (id.isEmpty) {
-      print('id får inte vara tom');
+      print('Leverans-ID får inte vara tomt');
       return null;
     }
     try {
       final snapshot = await _firestore
           .collection(deliveryCollection)
-          .where('deliveryId', isEqualTo: id)
+          .doc(id)
           .get();
 
-      if (snapshot.docs.isEmpty) {
-        print('Leverans finns inte');
+      if (!snapshot.exists) {
+        print('Leveransen finns inte');
         return null;
       }
 
-      return Delivery.fromJson(
-        snapshot.docs.first.data(),
-        snapshot.docs.first.id,
-      );
+      return Delivery.fromJson(snapshot.data()!, snapshot.id);
     } catch (e) {
       print('Fel vid hämtning av leverans: $e');
       rethrow;
     }
   }
 
+  /// Simulerar leveransstatus och kan uppdatera currentCity manuellt
   Future<DeliveryDto?> deliveryStatus(String deliveryId) async {
     if (deliveryId.isEmpty) {
       print('Leverans-ID får inte vara tomt');
@@ -106,9 +101,6 @@ class Deliveryrepository {
     }
 
     try {
-      final currentCity = await getCurrentCity();
-      print('Aktuell stad är: $currentCity');
-
       final snapshot = await _firestore
           .collection(deliveryCollection)
           .doc(deliveryId)
@@ -120,47 +112,23 @@ class Deliveryrepository {
       }
 
       final data = snapshot.data()!;
-
-      // Uppdatera currentCity i Firestore om den har ändrats
-      if (currentCity != null && currentCity != data['currentCity']) {
-        await _firestore.collection(deliveryCollection).doc(deliveryId).update({
-          'currentCity': currentCity,
-        });
-        data['currentCity'] = currentCity; // uppdatera även lokalt
-      }
-
       return DeliveryDto.fromJson(data);
     } catch (e) {
-      print('Fel vid hämtning av leverans: $e');
+      print('Fel vid hämtning av leveransstatus: $e');
       rethrow;
     }
   }
 
-  Future<String?> getCurrentCity() async {
+  /// Portfoliosyfte: tillåter manuell uppdatering av currentCity
+  Future<void> simulateCityUpdate(String deliveryId, String nextCity) async {
     try {
-      LocationPermission permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        print('Platsbehörighet nekad');
-        return null;
-      }
-
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-      final placemarks = await placemarkFromCoordinates(
-        position.latitude,
-        position.longitude,
-      );
-
-      if (placemarks.isNotEmpty) {
-        return placemarks.first.locality;
-      }
-
-      return null;
+      await _firestore.collection(deliveryCollection).doc(deliveryId).update({
+        'currentCity': nextCity,
+      });
+      print('currentCity uppdaterad till $nextCity');
     } catch (e) {
-      print('Fel vid platsinhämtning: $e');
-      return null;
+      print('Kunde inte uppdatera currentCity: $e');
+      rethrow;
     }
   }
 }
