@@ -112,4 +112,24 @@ class OrderRepository {
       rethrow;
     }
   }
+
+  //admin function get orders
+  Future<List<model.Order>> getAllOrdersIfAdmin() async {
+  try {
+    // Kontrollera om användaren är admin
+    final userRole = await _getUserRole();
+    if (userRole != UserRole.admin) {
+      throw Exception('Åtkomst nekad: Endast administratörer kan se alla beställningar.');
+    }
+
+    // Hämta alla beställningar
+    final snapshot = await _firestore.collection(orderCollection).get();
+    return snapshot.docs.map((doc) {
+      return model.Order.fromJson(doc.data(), doc.id);
+    }).toList();
+  } catch (e) {
+    print('Error: $e');
+    rethrow;
+  }
+}
 }
