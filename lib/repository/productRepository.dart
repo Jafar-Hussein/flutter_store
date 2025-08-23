@@ -4,12 +4,53 @@ import 'package:flutter_store/models/CartProduct.dart';
 import 'package:flutter_store/models/Orderproduct.dart';
 import 'package:flutter_store/models/cart.dart';
 import 'package:flutter_store/models/products.dart';
+import 'package:flutter_store/models/user.dart';
 
 class ProductRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String productCollection = 'product';
   final String cartCollection = 'cart';
   final String userCollection = 'user';
+
+// admin function: add product
+Future<void> addProduct(Product product) async {
+  final uid = auth.FirebaseAuth.instance.currentUser!.uid;
+  // använder _getUserRoleFromId för att kontrollera användarroll
+  final role = await _getUserRoleFromId(uid);
+  if (role != UserRole.admin) {
+    throw Exception('Åtkomst nekad: Endast administratörer kan lägga till produkter.');
+  }
+  if (product.title.isEmpty || product.price <= 0) {
+    throw Exception('Ogiltig produktdata: Kontrollera titel och pris.');
+  }
+  try {
+    await _firestore.collection(productCollection).add(product.toJson());
+  } catch (e) {
+    print('Error: $e');
+    rethrow;
+  }
+}
+//get user role
+void _getUserRoleFromId(String uid) async {
+  final userDoc = await _firestore.collection(userCollection).doc(uid).get();
+  if (!userDoc.exists) {
+    throw Exception('Användardokument finns inte');
+  }
+  try {
+    final data = userDoc.data()!;
+    final roleString = data['role'] as String?;
+    if (roleString == null) {
+      throw Exception('Användarroll saknas i dokumentet');
+    }
+    return UserRole.values.firstWhere(
+      (e) => e.toString() == 'UserRole.$roleString',
+      orElse: () => UserRole.customer,
+    );
+  } catch (e) {
+    print('Error: $e');
+    rethrow;
+  }
+}
 
   Future<Product> getProduct(String productId) async {
     try {
