@@ -31,7 +31,7 @@ class Product {
   // Konverterar ett Product-objekt till en JSON-karta.
   Map<String, dynamic> toJson() {
     return {
-      // id behövs inte här – Firestore använder det som dokument-ID
+      'id': id,
       'title': title,
       'category': category,
       'description': description,

@@ -1,30 +1,31 @@
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as auth;
+import 'package:flutter_store/models/delivery/delivery.dart';
+import 'package:flutter_store/models/delivery/deliveryDto.dart';
+import 'package:flutter_store/models/products.dart';
 import 'package:flutter_store/models/stripePayment.dart';
 import 'package:flutter_store/repository/cartRepository.dart';
 import 'package:flutter_store/repository/orderRepository.dart';
+import 'package:flutter_store/repository/deliveryRepository.dart';
 import 'package:http/http.dart' as http;
 
 class PaymentService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final String backendUrl = 'http://localhost:8080/create-payment-intent';
-  final String cartCollection = 'cart';
-  final String userCollection = 'user';
+  final String backendUrl = 'http://localhost:8081/create-payment-intent';
   final String stripePaymentCollection = 'StripePayment';
+  final Deliveryrepository _deliveryRepo = Deliveryrepository();
 
   Future<String> createPaymentIntent() async {
     try {
       final cartRepo = Cartrepository();
       final cart = await cartRepo.getCart();
 
-      if (cart.items.isEmpty) {
-        throw Exception("Kundvagnen är tom");
-      }
+      if (cart.items.isEmpty) throw Exception("Kundvagnen är tom");
 
       final amount = cart.total;
+      final currency = 'SEK';
 
-      String currency = 'SEK';
       final response = await http.post(
         Uri.parse(backendUrl),
         headers: {'Content-Type': 'application/json'},
@@ -33,23 +34,22 @@ class PaymentService {
           'currency': currency,
         }),
       );
+
       final clientSecret =
           json.decode(response.body)['clientSecret'] ??
           'pi_test_fake_secret_from_webhook';
 
       final createOrder = OrderRepository();
       await createOrder.createOrder(cart);
-
       await paymentInfo(amount, clientSecret);
-
-      print('Webhook skickat. Status: ${response.statusCode}');
-      print('Webhook svar: ${response.body}');
-
       await cartRepo.clearCart();
+
+      print('Webhook status: ${response.statusCode}');
+      print('Webhook svar: ${response.body}');
 
       return clientSecret;
     } catch (e) {
-      print('Fel vid test-paymentIntent: $e');
+      print('Fel vid createPaymentIntent: $e');
       rethrow;
     }
   }
@@ -67,12 +67,61 @@ class PaymentService {
       createdAt: DateTime.now(),
       clientSecret: clientSecret,
     );
+
     await paymentRef.set(payment.toJson());
+  }
+
+  Future<void> handleSuccessfulPayment({
+    required String userId,
+    required List<Product> products,
+    required String customerId,
+    required String deliveryAddress,
+    required double deliveryFee,
+    required String courierName,
+    required String currentCity,
+    required String startCity,
+    required String endCity,
+    String? trackingNumber,
+    DateTime? dispatchedTime,
+    DateTime? deliveredTime,
+    String? notes,
+  }) async {
+    final deliveryDto = DeliveryDto(
+      userId: userId,
+      products: products,
+      deliveryTime: DateTime.now(),
+      customerId: customerId,
+      deliveryAddress: deliveryAddress,
+      status: DeliveryStatus.Pending,
+      deliveryFee: deliveryFee,
+      courierName: courierName,
+      trackingNumber: trackingNumber,
+      dispatchedTime: dispatchedTime,
+      deliveredTime: deliveredTime,
+      notes: notes,
+      isPaid: true,
+      currentCity: startCity, // Startpunkten för spårning
+      startCity: startCity,
+      endCity: endCity,
+    );
+
+    await _deliveryRepo.createDelivery(deliveryDto);
   }
 
   Future<void> updatePaymentStatus({
     required String clientSecret,
     required Status status,
+    List<dynamic>? products,
+    String? customerId,
+    String? deliveryAddress,
+    double? deliveryFee,
+    String? courierName,
+    String? trackingNumber,
+    DateTime? dispatchedTime,
+    DateTime? deliveredTime,
+    String? notes,
+    String? startCity,
+    String? endCity,
   }) async {
     try {
       final query = await _firestore
@@ -88,9 +137,54 @@ class PaymentService {
       final docRef = query.docs.first.reference;
       await docRef.update({'paymentStatus': status.name});
       print('Betalningsstatus uppdaterad till: ${status.name}');
+
+      if (status == Status.Succeeded) {
+        final paymentData = query.docs.first.data();
+        final userId = paymentData['userId'];
+
+        if (products != null &&
+            customerId != null &&
+            deliveryAddress != null &&
+            deliveryFee != null &&
+            courierName != null &&
+            startCity != null &&
+            endCity != null) {
+          final currentCity = startCity; // För demo/portfolio, börja här
+
+          final productList = products.map<Product>((p) {
+            if (p is Product) return p;
+            if (p is Map<String, dynamic>) {
+              return Product.fromJson(p, p['id']);
+            }
+            throw Exception('Ogiltig produktdata');
+          }).toList();
+
+          await handleSuccessfulPayment(
+            userId: userId,
+            products: productList,
+            customerId: customerId,
+            deliveryAddress: deliveryAddress,
+            deliveryFee: deliveryFee,
+            courierName: courierName,
+            trackingNumber: trackingNumber,
+            dispatchedTime: dispatchedTime,
+            deliveredTime: deliveredTime,
+            notes: notes,
+            currentCity: currentCity,
+            startCity: startCity,
+            endCity: endCity,
+          );
+        } else {
+          print('Ofullständig information för leveransskapande');
+        }
+      }
     } catch (e) {
-      print('Fel vid uppdatering av betalningsstatus: $e');
+      print('Fel vid updatePaymentStatus: $e');
       rethrow;
     }
+  }
+
+  Future<void> createRefund() async {
+    // Lämnad tom för portfolio/demo
   }
 }
